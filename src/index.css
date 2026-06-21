@@ -5,20 +5,39 @@
   --font-display: "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
   
-  --color-brand-50: #f0fbfb;
-  --color-brand-100: #e0f2f1;
-  --color-brand-500: #0d9488;
-  --color-brand-600: #0f766e;
-  --color-brand-700: #115e59;
+  --color-brand-50: #0f172a;
+  --color-brand-100: #1e293b;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
 }
 
 @layer base {
   body {
     font-family: var(--font-sans);
+    background-color: #030712; /* Rich void black */
+    color: #f3f4f6; /* Modern gray contrast */
   }
   
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
-    tracking: -0.02em;
+    letter-spacing: -0.02em;
   }
 }
+
+/* Custom modern scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #030712;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #14b8a6;
+}
+
