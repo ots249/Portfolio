@@ -7,6 +7,7 @@ import {
 import { ProjectCard } from "./components/ProjectCard";
 import { SEODashboard } from "./components/SEODashboard";
 import { ContactSection } from "./components/ContactSection";
+import { ScrollReveal } from "./components/ScrollReveal";
 import { 
   Globe, Github, Linkedin, Twitter, Sparkles, 
   Code2, Eye, Server, Zap, Compass, ArrowRight,
@@ -121,7 +122,7 @@ export default function App() {
             <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
               
               {/* Profile Bio Context (7 cols) */}
-              <div className="space-y-6 lg:col-span-7">
+              <ScrollReveal direction="left" className="space-y-6 lg:col-span-7">
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-850 border border-teal-100">
                   <Globe className="h-3 w-3 text-teal-600" />
                   <span>Verified Domain:</span>
@@ -172,10 +173,10 @@ export default function App() {
                     View Project Cases
                   </a>
                 </div>
-              </div>
+              </ScrollReveal>
 
               {/* Developer Avatar Showcase with Glass Frame (5 cols) */}
-              <div className="lg:col-span-5 flex justify-center">
+              <ScrollReveal direction="right" className="lg:col-span-5 flex justify-center">
                 <div className="relative group max-w-[280px] sm:max-w-[320px]">
                   {/* Glowing background halo */}
                   <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-teal-500 to-indigo-500 opacity-20 blur-xl group-hover:opacity-30 transition-all"></div>
@@ -199,7 +200,7 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </ScrollReveal>
 
             </div>
           </div>
@@ -208,21 +209,25 @@ export default function App() {
         {/* DETAILED RICH BIO SHOWCASE SECTION */}
         <section className="bg-slate-50 py-12 border-b border-slate-200/80">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2 mb-4">
-                <User className="h-4 w-4 text-teal-600" />
-                {currentLanguage === "EN" ? "Developer Biography" : "জীবনী পরিচিতি"}
-              </h3>
-              <p className="text-sm sm:text-base leading-relaxed text-slate-700">
-                {currentLanguage === "EN" ? PERSONAL_INFO.fullBio : bnBio.fullBio}
-              </p>
-            </div>
+            <ScrollReveal direction="up">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2 mb-4">
+                  <User className="h-4 w-4 text-teal-600" />
+                  {currentLanguage === "EN" ? "Developer Biography" : "জীবনী পরিচিতি"}
+                </h3>
+                <p className="text-sm sm:text-base leading-relaxed text-slate-700">
+                  {currentLanguage === "EN" ? PERSONAL_INFO.fullBio : bnBio.fullBio}
+                </p>
+              </div>
+            </ScrollReveal>
           </div>
         </section>
 
         {/* SEO SECTION (CORE TASK SPECIFIC RESPONSE CARD) */}
         <section id="seo-section" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <SEODashboard />
+          <ScrollReveal direction="up" delay={0.1}>
+            <SEODashboard />
+          </ScrollReveal>
         </section>
 
         {/* PORTFOLIO PROJECTS BLOCK */}
@@ -230,43 +235,47 @@ export default function App() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             
             {/* Header control center */}
-            <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-              <div>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
-                  <Code2 className="h-3.5 w-3.5" /> Project Repository
-                </span>
-                <h2 className="mt-3 text-3xl font-bold font-display text-slate-800">
-                  Showcase of Web Applications
-                </h2>
-                <p className="mt-1 text-sm text-slate-500 max-w-xl">
-                  Explore custom scripts, utilities, and developer scaffolds registered under handle <strong>{PERSONAL_INFO.githubHandle}</strong>.
-                </p>
-              </div>
+            <ScrollReveal direction="up">
+              <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
+                    <Code2 className="h-3.5 w-3.5" /> Project Repository
+                  </span>
+                  <h2 className="mt-3 text-3xl font-bold font-display text-slate-800">
+                    Showcase of Web Applications
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500 max-w-xl">
+                    Explore custom scripts, utilities, and developer scaffolds registered under handle <strong>{PERSONAL_INFO.githubHandle}</strong>.
+                  </p>
+                </div>
 
-              {/* Filtering Controls */}
-              <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1 font-sans">
-                {["All", "Web App", "Library"].map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setFilterCategory(cat)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                      filterCategory === cat
-                        ? "bg-white text-teal-700 shadow-xs"
-                        : "text-slate-600 hover:text-slate-800"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {/* Filtering Controls */}
+                <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1 font-sans">
+                  {["All", "Web App", "Library"].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setFilterCategory(cat)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                        filterCategory === cat
+                          ? "bg-white text-teal-700 shadow-xs"
+                          : "text-slate-600 hover:text-slate-800"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            </ScrollReveal>
 
             {/* Grid distribution */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-            </div>
+            <ScrollReveal direction="up" delay={0.1}>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredProjects.map((project) => (
+                  <ProjectCard key={project.id} project={project} />
+                ))}
+              </div>
+            </ScrollReveal>
 
           </div>
         </section>
@@ -275,59 +284,65 @@ export default function App() {
         <section id="skills" className="bg-slate-50/50 py-16 border-t border-b border-slate-200/80">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             
-            <div className="mb-10 text-center">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                <Zap className="h-3.5 w-3.5 text-teal-600" /> Technology Stacks
-              </span>
-              <h2 className="mt-3 text-3xl font-bold font-display text-slate-800">
-                Specialized Capabilities
-              </h2>
-              <p className="mx-auto mt-2 text-sm text-slate-500 max-w-lg">
-                Engineered for responsiveness, fast loading times, and Google botanical crawling compliance.
-              </p>
-            </div>
+            <ScrollReveal direction="up">
+              <div className="mb-10 text-center">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  <Zap className="h-3.5 w-3.5 text-teal-600" /> Technology Stacks
+                </span>
+                <h2 className="mt-3 text-3xl font-bold font-display text-slate-800">
+                  Specialized Capabilities
+                </h2>
+                <p className="mx-auto mt-2 text-sm text-slate-500 max-w-lg">
+                  Engineered for responsiveness, fast loading times, and Google botanical crawling compliance.
+                </p>
+              </div>
+            </ScrollReveal>
 
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {SKILL_CATEGORIES.map((category) => (
-                <div 
-                  key={category.id} 
-                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs"
-                  id={`skill-cat-${category.id}`}
-                >
-                  <h3 className="mb-6 text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
-                    {category.title}
-                  </h3>
+            <ScrollReveal direction="up" delay={0.1}>
+              <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                {SKILL_CATEGORIES.map((category) => (
+                  <div 
+                    key={category.id} 
+                    className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs"
+                    id={`skill-cat-${category.id}`}
+                  >
+                    <h3 className="mb-6 text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
+                      {category.title}
+                    </h3>
 
-                  <div className="space-y-4">
-                    {category.skills.map((skill) => (
-                      <div key={skill.name} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-slate-700">{skill.name}</span>
-                          <span className="font-mono text-slate-400 text-[10px]">{skill.level}</span>
+                    <div className="space-y-4">
+                      {category.skills.map((skill) => (
+                        <div key={skill.name} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-700">{skill.name}</span>
+                            <span className="font-mono text-slate-400 text-[10px]">{skill.level}</span>
+                          </div>
+                          {/* Progress Bar indicator */}
+                          <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div 
+                              className="h-full rounded-full bg-teal-500 transition-all duration-500" 
+                              style={{ 
+                                width: skill.level === "Expert" ? "100%" : skill.level === "Intermediate" ? "75%" : "40%" 
+                              }}
+                            ></div>
+                          </div>
                         </div>
-                        {/* Progress Bar indicator */}
-                        <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                          <div 
-                            className="h-full rounded-full bg-teal-500 transition-all duration-500" 
-                            style={{ 
-                              width: skill.level === "Expert" ? "100%" : skill.level === "Intermediate" ? "75%" : "40%" 
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </ScrollReveal>
 
           </div>
         </section>
 
         {/* CONTACT CONNECTIONS SECTION */}
         <section id="contact" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <ContactSection />
+          <ScrollReveal direction="up">
+            <ContactSection />
+          </ScrollReveal>
         </section>
 
       </main>

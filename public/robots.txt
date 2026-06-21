@@ -1,0 +1,8 @@
+# https://www.robotstxt.org/db.html
+# Robots config for Oahid Towsif Shamol (ots249)
+
+User-agent: *
+Allow: /
+
+# Canonical Sitemap URL
+Sitemap: https://towsif.pro.bd/sitemap.xml

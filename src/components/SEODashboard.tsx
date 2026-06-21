@@ -9,6 +9,8 @@ export const SEODashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("Oahid Towsif Shamol");
   const [dnsStatus, setDnsStatus] = useState<Record<string, boolean>>({
     "head-meta": true,
+    "sitemap-creation": true,
+    "robots-txt": true,
     "domain-dns": false,
     "google-search-console": false,
     "structured-data": true,
@@ -372,7 +374,7 @@ export const SEODashboard: React.FC = () => {
                         <div>
                           <h4 className="text-xs font-bold text-slate-800 leading-none flex items-center gap-2">
                             {step.title}
-                            {step.id === "head-meta" || step.id === "structured-data" ? (
+                            {step.id === "head-meta" || step.id === "sitemap-creation" || step.id === "robots-txt" || step.id === "structured-data" ? (
                               <span className="inline-block px-1.5 py-0.2 text-[9px] font-semibold bg-emerald-100 text-emerald-800 border-none rounded">
                                 Implemented
                               </span>

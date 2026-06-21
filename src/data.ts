@@ -104,6 +104,20 @@ export const GOOGLE_SEO_CHECKLIST: SEOAdvice[] = [
     solution: "Already active in code. Includes references to name 'Oahid Towsif Shamol' and handle 'ots249'."
   },
   {
+    id: "sitemap-creation",
+    title: "XML Sitemap Generation (sitemap.xml)",
+    status: "success",
+    message: "A search-ready Google Sitemap has been generated and mounted at towsif.pro.bd/sitemap.xml.",
+    solution: "Already active in /public/sitemap.xml. Register this URL under the 'Sitemaps' tab in Google Search Console to speed up listing indexing."
+  },
+  {
+    id: "robots-txt",
+    title: "Configure crawlers guide (robots.txt)",
+    status: "success",
+    message: "A structured robots.txt is present to allow crawl spiders and indicate your static map URL.",
+    solution: "Already active in /public/robots.txt. It points spiders from Google, Bing, and DuckDuckGo directly to your sitemap."
+  },
+  {
     // Important context to achieve search objective
     id: "domain-dns",
     title: "Domain DNS Records for towsif.pro.bd",
