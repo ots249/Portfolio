@@ -10,13 +10,124 @@ import { ScrollReveal } from "./components/ScrollReveal";
 import { 
   Globe, Github, Linkedin, Twitter, Sparkles, 
   Code2, Eye, Server, Zap, Compass, ArrowRight,
-  User, CheckCircle, Smartphone, Award, Terminal
+  User, CheckCircle, Smartphone, Award, Terminal,
+  Music, Volume2, VolumeX, Play, Pause, Radio
 } from "lucide-react";
 
 export default function App() {
   const [currentLanguage, setCurrentLanguage] = useState<"EN" | "BN">("EN");
   const [filterCategory, setFilterCategory] = useState<string>("All");
   const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  // Radio Stream Background Music States & Controls
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [volume, setVolume] = useState<number>(0.2); // Soft ambient volume (20%)
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  React.useEffect(() => {
+    // Instantiate Audio with the radio live stream URL
+    const radioUrl = "https://radiofoorti.fm/api/stream?t=1783275408787";
+    const audio = new Audio(radioUrl);
+    audio.loop = true;
+    audio.volume = volume;
+    audioRef.current = audio;
+
+    // Play helper
+    const startPlay = () => {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            setAudioError(null);
+            removeListeners();
+          })
+          .catch((err) => {
+            console.warn("Initial audio autoplay blocked. Will auto-trigger on first click/scroll/tap.", err);
+          });
+      }
+    };
+
+    const handleFirstGesture = () => {
+      startPlay();
+    };
+
+    const addListeners = () => {
+      window.addEventListener("click", handleFirstGesture, { once: true });
+      window.addEventListener("touchstart", handleFirstGesture, { once: true });
+      window.addEventListener("keydown", handleFirstGesture, { once: true });
+    };
+
+    const removeListeners = () => {
+      window.removeEventListener("click", handleFirstGesture);
+      window.removeEventListener("touchstart", handleFirstGesture);
+      window.removeEventListener("keydown", handleFirstGesture);
+    };
+
+    // Attempt direct autoplay
+    startPlay();
+    
+    // Register backup gesture-driven autoplay listeners
+    addListeners();
+
+    // Clean up on unmount
+    return () => {
+      removeListeners();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleVolumeChange = (newVolume: number) => {
+    setVolume(newVolume);
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume;
+      audioRef.current.muted = newVolume === 0;
+    }
+    if (isMuted && newVolume > 0) {
+      setIsMuted(false);
+    }
+  };
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      // Reload stream to get latest live feed without buffering lag
+      const liveStreamUrl = "https://radiofoorti.fm/api/stream?t=" + Date.now();
+      audioRef.current.src = liveStreamUrl;
+      audioRef.current.load();
+      audioRef.current.volume = volume;
+      audioRef.current.muted = isMuted;
+
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            setAudioError(null);
+          })
+          .catch((err) => {
+            console.error("Audio playback activation blocked:", err);
+            setAudioError("Blocked");
+          });
+      }
+    }
+  };
+
+  const toggleMute = () => {
+    if (!audioRef.current) return;
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    audioRef.current.muted = nextMuted;
+  };
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -30,9 +141,9 @@ export default function App() {
 
   // Bengali specific translations of bio
   const bnBio = {
-    tagline: "সফটওয়্যার ইঞ্জিনিয়ার এবং ওপেন সোর্স ডেভেলপার",
-    miniBio: "পারফর্ম্যান্ট ওয়েব প্রোডাক্ট, রেসপন্সিভ টুলস এবং হাইলি অপ্টিমাইজড সার্চ-ইঞ্জিন ভিজিবল ওয়েব ইন্ফ্রাস্ট্রাকচার তৈরি করতে ভালোবাসেন।",
-    fullBio: "আমি একজন সফটওয়্যার ইঞ্জিনিয়ার এবং ওপেন সোর্স ডেভেলপার, যিনি ক্লিন ওয়েব ইন্টারফেস, মজবুত এপিআই সার্ভার এবং অত্যন্ত অপ্টিমাইজড প্ল্যাটফর্ম তৈরি করতে ভালোবাসি।"
+    tagline: "সিভিল টেকনোলজি ডিপ্লোমা শিক্ষার্থী এবং সফটওয়্যার ডেভেলপার",
+    miniBio: "ঢাকা পলিটেকনিক ইনস্টিটিউটের সিভিল টেকনোলজি বিভাগের একজন ডিপ্লোমা শিক্ষার্থী এবং ডেভেলপার যিনি রেসপন্সিভ ওয়েব সল্যুশন, ইঞ্জিনিয়ারিং ক্যালকুলেটর এবং অপ্টিমাইজড ওয়েব ও মোবাইল সিস্টেম তৈরি করেন।",
+    fullBio: "আমি ঢাকা পলিটেকনিক ইনস্টিটিউটের সিভিল টেকনোলজি (Civil Technology) বিভাগের একজন ডিপ্লোমা শিক্ষার্থী এবং একজন প্যাশনেট সফটওয়্যার ডেভেলপার। আমি মূলত ক্লিন ওয়েব ইউজার ইন্টারফেস, ইঞ্জিনিয়ারিং ক্যালকুলেটিং সল্যুশন এবং ওপেন সোর্স স্ক্যাফোল্ডস তৈরি করতে ভালোবাসি। আমার হ্যান্ডেল ots249 এবং ডোমেইন towsif.pro.bd এর মাধ্যমে আমি অপ্টিমাইজড ওয়েব অ্যাপ্লিকেশন সকলের নিকট পৌঁছে দিতে কাজ করি।"
   };
 
   return (
@@ -361,6 +472,85 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Floating Radio Foorti Live Player */}
+      <div 
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-full border border-zinc-800 bg-[#0b0c10]/95 px-4 py-2.5 shadow-2xl backdrop-blur-md transition-all duration-300 hover:border-teal-500/50 hover:shadow-teal-500/5" 
+        id="radio-player-widget"
+      >
+        {/* Animated wave visualizer (only animates when actively playing) */}
+        <div className="flex items-end gap-0.5 h-[18px] w-6 px-1 justify-center">
+          {isPlaying && !isMuted ? (
+            <>
+              <span className="wave-bar"></span>
+              <span className="wave-bar"></span>
+              <span className="wave-bar"></span>
+              <span className="wave-bar"></span>
+            </>
+          ) : (
+            <>
+              <span className="h-1 w-[2.5px] bg-slate-600 rounded-xs"></span>
+              <span className="h-2 w-[2.5px] bg-slate-600 rounded-xs"></span>
+              <span className="h-1 w-[2.5px] bg-slate-600 rounded-xs"></span>
+              <span className="h-2 w-[2.5px] bg-slate-600 rounded-xs"></span>
+            </>
+          )}
+        </div>
+
+        {/* Text Details */}
+        <div className="flex flex-col select-none pr-1">
+          <span className="text-[9px] font-mono font-bold tracking-widest text-teal-400 uppercase flex items-center gap-1">
+            <span className={`h-1.5 w-1.5 rounded-full ${isPlaying && !isMuted ? "bg-red-500 animate-pulse" : "bg-slate-600"}`}></span>
+            Live Music
+          </span>
+          <span className="text-xs font-semibold text-white tracking-tight">Radio Foorti</span>
+        </div>
+
+        {/* Volume controls & slider */}
+        <div className="flex items-center gap-2 border-l border-zinc-800/80 pl-3">
+          <button
+            onClick={toggleMute}
+            className="text-slate-400 hover:text-teal-400 transition-colors p-1 cursor-pointer"
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted || volume === 0 ? (
+              <VolumeX className="h-3.5 w-3.5" />
+            ) : (
+              <Volume2 className="h-3.5 w-3.5" />
+            )}
+          </button>
+          
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={isMuted ? 0 : volume}
+            onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+            className="w-12 h-1 rounded-lg appearance-none cursor-pointer bg-zinc-800 accent-teal-500 hover:accent-teal-400 transition-all outline-none"
+            title="Volume"
+          />
+        </div>
+
+        {/* Master Play/Pause Circular Button */}
+        <button
+          onClick={togglePlay}
+          className={`ml-1 flex h-8 w-8 items-center justify-center rounded-full text-[#030712] shadow-md transition-all duration-300 transform active:scale-95 cursor-pointer ${
+            isPlaying 
+              ? "bg-teal-500 hover:bg-teal-400 hover:scale-105 shadow-teal-500/25" 
+              : "bg-teal-500 hover:bg-teal-400 shadow-teal-500/15"
+          }`}
+          title={isPlaying ? "Pause Stream" : "Play Live Radio"}
+          id="play-radio-button"
+        >
+          {isPlaying ? (
+            <Pause className="h-3.5 w-3.5 fill-current" />
+          ) : (
+            <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
+          )}
+        </button>
+
+      </div>
 
     </div>
   );
