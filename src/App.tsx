@@ -24,11 +24,12 @@ export default function App() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(0.2); // Soft ambient volume (20%)
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [showAutoplayPrompt, setShowAutoplayPrompt] = useState<boolean>(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   React.useEffect(() => {
     // Instantiate Audio with the radio live stream URL
-    const radioUrl = "https://radiofoorti.fm/api/stream?t=1783275408787";
+    const radioUrl = "https://radiofoorti.fm/api/stream";
     const audio = new Audio(radioUrl);
     audio.loop = true;
     audio.volume = volume;
@@ -42,10 +43,12 @@ export default function App() {
           .then(() => {
             setIsPlaying(true);
             setAudioError(null);
+            setShowAutoplayPrompt(false);
             removeListeners();
           })
           .catch((err) => {
             console.warn("Initial audio autoplay blocked. Will auto-trigger on first click/scroll/tap.", err);
+            setShowAutoplayPrompt(true);
           });
       }
     };
@@ -58,15 +61,17 @@ export default function App() {
       window.addEventListener("click", handleFirstGesture, { once: true });
       window.addEventListener("touchstart", handleFirstGesture, { once: true });
       window.addEventListener("keydown", handleFirstGesture, { once: true });
+      window.addEventListener("mousedown", handleFirstGesture, { once: true });
     };
 
     const removeListeners = () => {
       window.removeEventListener("click", handleFirstGesture);
       window.removeEventListener("touchstart", handleFirstGesture);
       window.removeEventListener("keydown", handleFirstGesture);
+      window.removeEventListener("mousedown", handleFirstGesture);
     };
 
-    // Attempt direct autoplay
+    // Attempt direct autoplay immediately
     startPlay();
     
     // Register backup gesture-driven autoplay listeners
@@ -478,6 +483,23 @@ export default function App() {
         className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-full border border-zinc-800 bg-[#0b0c10]/95 px-4 py-2.5 shadow-2xl backdrop-blur-md transition-all duration-300 hover:border-teal-500/50 hover:shadow-teal-500/5" 
         id="radio-player-widget"
       >
+        {/* Playback Autoplay Prompt Bubble */}
+        {showAutoplayPrompt && (
+          <div className="absolute bottom-full right-0 mb-3 w-64 rounded-xl border border-teal-500/40 bg-[#0b0c10]/95 p-3 text-xs text-zinc-200 shadow-2xl backdrop-blur-md transition-all duration-300">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="flex h-2 w-2 rounded-full bg-teal-400 animate-ping"></span>
+              <span className="font-bold text-teal-400 uppercase tracking-widest text-[9px]">Autoplay Ready</span>
+            </div>
+            <p className="leading-relaxed font-medium">
+              লাইভ রেডিও শুনতে স্ক্রিনের যেকোনো জায়গায় ক্লিক করুন! 
+              <span className="block mt-1 text-[10px] text-zinc-400 italic font-normal">
+                (Click anywhere on the screen to play live audio)
+              </span>
+            </p>
+            <div className="absolute right-8 top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-zinc-800"></div>
+          </div>
+        )}
+
         {/* Animated wave visualizer (only animates when actively playing) */}
         <div className="flex items-end gap-0.5 h-[18px] w-6 px-1 justify-center">
           {isPlaying && !isMuted ? (
