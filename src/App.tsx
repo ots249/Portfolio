@@ -13,6 +13,7 @@ import {
   User, CheckCircle, Smartphone, Award, Terminal,
   Music, Volume2, VolumeX, Play, Pause, Radio
 } from "lucide-react";
+import { Analytics } from "@vercel/analytics/react";
 
 export default function App() {
   const [currentLanguage, setCurrentLanguage] = useState<"EN" | "BN">("EN");
@@ -574,6 +575,8 @@ export default function App() {
 
       </div>
 
+      {/* Vercel Web Analytics */}
+      <Analytics />
     </div>
   );
 }
