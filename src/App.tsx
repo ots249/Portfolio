@@ -5,6 +5,7 @@ import {
   SKILL_CATEGORIES 
 } from "./data";
 import { ProjectCard } from "./components/ProjectCard";
+import { GitHubHeatmap } from "./components/GitHubHeatmap";
 import { ContactSection } from "./components/ContactSection";
 import { ScrollReveal } from "./components/ScrollReveal";
 import { 
@@ -13,31 +14,227 @@ import {
   User, CheckCircle, Smartphone, Award, Terminal,
   Music, Volume2, VolumeX, Play, Pause, Radio
 } from "lucide-react";
-import { Analytics } from "@vercel/analytics/react";
 
 export default function App() {
   const [currentLanguage, setCurrentLanguage] = useState<"EN" | "BN">("EN");
   const [filterCategory, setFilterCategory] = useState<string>("All");
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
-  // Radio Stream Background Music States & Controls
+  // Radio Stream Background Music States & Controls with localStorage persistence
+  const [volume, setVolume] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("radio_foorti_volume");
+      if (saved !== null) {
+        const val = parseFloat(saved);
+        if (!isNaN(val) && val >= 0 && val <= 1) return val;
+      }
+    } catch (e) {
+      console.warn("Could not read volume from localStorage", e);
+    }
+    return 0.2; // Soft ambient volume default (20%)
+  });
+
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("radio_foorti_muted");
+      if (saved !== null) return saved === "true";
+    } catch (e) {
+      console.warn("Could not read mute state from localStorage", e);
+    }
+    return false;
+  });
+
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [volume, setVolume] = useState<number>(0.2); // Soft ambient volume (20%)
   const [audioError, setAudioError] = useState<string | null>(null);
   const [showAutoplayPrompt, setShowAutoplayPrompt] = useState<boolean>(false);
+  const [nowPlaying, setNowPlaying] = useState<string>("Radio Foorti 88.0 FM");
+  const [barHeights, setBarHeights] = useState<number[]>([4, 6, 4, 6]);
+
+  // GitHub Profile Live Stats
+  const [githubStats, setGithubStats] = useState({
+    repos: PERSONAL_INFO.publicRepos,
+    avatarUrl: PERSONAL_INFO.avatarUrl,
+    synced: true
+  });
+
+  React.useEffect(() => {
+    fetch(`https://api.github.com/users/${PERSONAL_INFO.githubHandle}`, {
+      headers: { Accept: "application/vnd.github.v3+json" }
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("GitHub fetch response not ok");
+        return res.json();
+      })
+      .then((data) => {
+        if (data && typeof data.public_repos === "number") {
+          setGithubStats({
+            repos: data.public_repos,
+            avatarUrl: data.avatar_url || PERSONAL_INFO.avatarUrl,
+            synced: true
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn("GitHub live sync fallback to static cache:", err);
+      });
+  }, []);
+
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = React.useRef<AudioContext | null>(null);
+  const analyserRef = React.useRef<AnalyserNode | null>(null);
+  const animFrameRef = React.useRef<number | null>(null);
+
+  // Lazy Web Audio API setup helper
+  const setupWebAudio = () => {
+    if (!audioRef.current || audioCtxRef.current) return;
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      const ctx = new AudioContextClass();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.8;
+
+      const source = ctx.createMediaElementSource(audioRef.current);
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+
+      audioCtxRef.current = ctx;
+      analyserRef.current = analyser;
+    } catch (err) {
+      console.warn("Web Audio API setup warning:", err);
+    }
+  };
+
+  // Poll Radio Foorti API for current song metadata
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const fetchNowPlayingMetadata = async () => {
+      try {
+        const endpoints = [
+          "https://radiofoorti.fm/api/nowplaying",
+          "https://radiofoorti.fm/api/status",
+          "https://radiofoorti.fm/api/stream"
+        ];
+
+        for (const url of endpoints) {
+          try {
+            const response = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
+            if (response.ok) {
+              const data = await response.json();
+              const songTitle =
+                data?.now_playing?.song?.title ||
+                data?.song?.title ||
+                data?.title ||
+                data?.now_playing ||
+                data?.current_song;
+              const artistName =
+                data?.now_playing?.song?.artist ||
+                data?.song?.artist ||
+                data?.artist;
+
+              if (songTitle && isMounted) {
+                setNowPlaying(artistName ? `${songTitle} - ${artistName}` : songTitle);
+                return;
+              }
+            }
+          } catch {
+            // try next endpoint
+          }
+        }
+      } catch {
+        // fallback
+      }
+
+      if (isMounted) {
+        setNowPlaying("88.0 FM • Live Nonstop Hits");
+      }
+    };
+
+    fetchNowPlayingMetadata();
+    const intervalId = setInterval(fetchNowPlayingMetadata, 20000); // Poll every 20 seconds
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // Web Audio API Frequency Spectrum Analysis Loop
+  React.useEffect(() => {
+    if (!isPlaying || isMuted) {
+      setBarHeights([4, 4, 4, 4]);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      return;
+    }
+
+    const analyzeAudio = () => {
+      let heights = [4, 4, 4, 4];
+      let hasRealSpectrum = false;
+
+      if (analyserRef.current) {
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyserRef.current.getByteFrequencyData(dataArray);
+
+        const sum = dataArray.reduce((acc, val) => acc + val, 0);
+        if (sum > 0) {
+          hasRealSpectrum = true;
+          // Split frequency bins into 4 distinct sound bands (Bass, Low-Mid, Mid, High)
+          const chunkSize = Math.floor(bufferLength / 4) || 1;
+          heights = [0, 1, 2, 3].map((i) => {
+            const chunk = dataArray.slice(i * chunkSize, (i + 1) * chunkSize);
+            const avg = chunk.reduce((a, b) => a + b, 0) / (chunk.length || 1);
+            // Map 0-255 frequency level to 4px - 18px bar height
+            return Math.max(4, Math.min(18, Math.round(4 + (avg / 255) * 14)));
+          });
+        }
+      }
+
+      // Dynamic spectrum fallback when cross-origin policy prevents raw buffer reading
+      if (!hasRealSpectrum) {
+        const t = Date.now() / 120;
+        heights = [
+          Math.max(4, Math.round(11 + Math.sin(t * 1.3) * 7)),
+          Math.max(4, Math.round(13 + Math.cos(t * 1.7) * 5)),
+          Math.max(4, Math.round(10 + Math.sin(t * 2.1) * 6)),
+          Math.max(4, Math.round(12 + Math.cos(t * 1.1) * 6))
+        ];
+      }
+
+      setBarHeights(heights);
+      animFrameRef.current = requestAnimationFrame(analyzeAudio);
+    };
+
+    analyzeAudio();
+
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [isPlaying, isMuted]);
 
   React.useEffect(() => {
     // Instantiate Audio with the radio live stream URL
     const radioUrl = "https://radiofoorti.fm/api/stream";
-    const audio = new Audio(radioUrl);
+    const audio = new Audio();
+    audio.crossOrigin = "anonymous";
+    audio.src = radioUrl;
     audio.loop = true;
     audio.volume = volume;
+    audio.muted = isMuted;
     audioRef.current = audio;
 
     // Play helper
     const startPlay = () => {
+      setupWebAudio();
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume();
+      }
+
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise
@@ -81,6 +278,7 @@ export default function App() {
     // Clean up on unmount
     return () => {
       removeListeners();
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -90,17 +288,33 @@ export default function App() {
 
   const handleVolumeChange = (newVolume: number) => {
     setVolume(newVolume);
+    try {
+      localStorage.setItem("radio_foorti_volume", newVolume.toString());
+    } catch (e) {
+      console.warn("Could not save volume to localStorage", e);
+    }
+
     if (audioRef.current) {
       audioRef.current.volume = newVolume;
-      audioRef.current.muted = newVolume === 0;
+      audioRef.current.muted = newVolume === 0 || isMuted;
     }
     if (isMuted && newVolume > 0) {
       setIsMuted(false);
+      try {
+        localStorage.setItem("radio_foorti_muted", "false");
+      } catch (e) {
+        console.warn("Could not save mute state to localStorage", e);
+      }
     }
   };
 
   const togglePlay = () => {
     if (!audioRef.current) return;
+
+    setupWebAudio();
+    if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume();
+    }
 
     if (isPlaying) {
       audioRef.current.pause();
@@ -132,6 +346,11 @@ export default function App() {
     if (!audioRef.current) return;
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
+    try {
+      localStorage.setItem("radio_foorti_muted", nextMuted.toString());
+    } catch (e) {
+      console.warn("Could not save mute state to localStorage", e);
+    }
     audioRef.current.muted = nextMuted;
   };
 
@@ -179,9 +398,11 @@ export default function App() {
             <a href="#hero" className="text-xs font-semibold text-slate-400 hover:text-teal-400 transition-colors">
               About
             </a>
-            <a href="#projects" className="text-xs font-semibold text-slate-400 hover:text-teal-400 transition-colors">
-              Projects
-            </a>
+            {DEFAULT_PROJECTS.length > 0 && (
+              <a href="#projects" className="text-xs font-semibold text-slate-400 hover:text-teal-400 transition-colors">
+                Projects
+              </a>
+            )}
             <a href="#skills" className="text-xs font-semibold text-slate-400 hover:text-teal-400 transition-colors">
               Skills
             </a>
@@ -239,10 +460,29 @@ export default function App() {
               
               {/* Profile Bio Context (7 cols) */}
               <ScrollReveal direction="left" className="space-y-6 lg:col-span-7">
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-950/30 px-3 py-1 text-xs font-semibold text-teal-400 border border-teal-900/40">
-                  <Globe className="h-3 w-3 text-teal-450" />
-                  <span>Verified Domain:</span>
-                  <span className="font-mono underline text-teal-350">{PERSONAL_INFO.domain}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-950/30 px-3 py-1 text-xs font-semibold text-teal-400 border border-teal-900/40">
+                    <Globe className="h-3 w-3 text-teal-400" />
+                    <span>Domain:</span>
+                    <span className="font-mono underline text-teal-300">{PERSONAL_INFO.domain}</span>
+                  </div>
+
+                  <a
+                    href={PERSONAL_INFO.github}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 transition-colors px-3 py-1 text-xs font-semibold text-slate-300 border border-zinc-800"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                    </span>
+                    <Github className="h-3.5 w-3.5 text-white" />
+                    <span>GitHub: <strong>@{PERSONAL_INFO.githubHandle}</strong></span>
+                    <span className="font-mono text-[10px] text-teal-400 bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-900/50">
+                      {githubStats.repos} Repos
+                    </span>
+                  </a>
                 </div>
 
                 <div className="space-y-3">
@@ -263,13 +503,22 @@ export default function App() {
 
                 {/* Info Metadata Badges */}
                 <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <a
+                    href={PERSONAL_INFO.github}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-zinc-900/60 hover:bg-zinc-800/80 transition-colors border border-zinc-800/80 px-2.5 py-1 text-xs font-mono font-medium text-slate-300"
+                  >
+                    <Github className="h-3.5 w-3.5 text-teal-400" />
+                    <span>github.com/<strong>{PERSONAL_INFO.githubHandle}</strong></span>
+                  </a>
                   <span className="inline-flex items-center gap-1 rounded-md bg-zinc-900/60 border border-zinc-800/80 px-2.5 py-1 text-xs font-mono font-medium text-slate-300">
-                    <User className="h-3.5 w-3.5 text-slate-500" />
-                    <strong>Google entity:</strong> "Oahid Towsif Shamol"
+                    <Code2 className="h-3.5 w-3.5 text-slate-400" />
+                    <span>{githubStats.repos} Public Repositories</span>
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-md bg-zinc-900/60 border border-zinc-800/80 px-2.5 py-1 text-xs font-mono font-medium text-slate-300">
-                    <Terminal className="h-3.5 w-3.5 text-slate-500" />
-                    <strong>Handle:</strong> {PERSONAL_INFO.githubHandle}
+                    <User className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Active Builder</span>
                   </span>
                 </div>
 
@@ -282,12 +531,21 @@ export default function App() {
                     <span>Let's Connect</span>
                     <ArrowRight className="h-4 w-4" />
                   </a>
-                  <a
-                    href="#projects"
-                    className="inline-flex items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/20 px-5 py-3 text-sm font-semibold text-slate-300 hover:bg-zinc-900 transition-colors"
-                  >
-                    View Project Cases
-                  </a>
+                  {DEFAULT_PROJECTS.length > 0 ? (
+                    <a
+                      href="#projects"
+                      className="inline-flex items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/20 px-5 py-3 text-sm font-semibold text-slate-300 hover:bg-zinc-900 transition-colors"
+                    >
+                      View GitHub Repos ({DEFAULT_PROJECTS.length})
+                    </a>
+                  ) : (
+                    <a
+                      href="#skills"
+                      className="inline-flex items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/20 px-5 py-3 text-sm font-semibold text-slate-300 hover:bg-zinc-900 transition-colors"
+                    >
+                      View Capabilities
+                    </a>
+                  )}
                 </div>
               </ScrollReveal>
 
@@ -300,8 +558,11 @@ export default function App() {
                   {/* Primary framing container */}
                   <div className="relative rounded-2xl border border-zinc-800 bg-[#0b0c10] p-3 shadow-md">
                     <img
-                      src="/src/assets/images/developer_avatar_1782018395211.jpg"
-                      alt="Oahid Towsif Shamol logo avatar"
+                      src={githubStats.avatarUrl}
+                      onError={(e) => {
+                        e.currentTarget.src = "/src/assets/images/developer_avatar_1782018395211.jpg";
+                      }}
+                      alt="Oahid Towsif Shamol avatar"
                       referrerPolicy="no-referrer"
                       className="rounded-xl w-full aspect-square object-cover transition-transform group-hover:scale-[1.01]"
                     />
@@ -312,7 +573,7 @@ export default function App() {
                         <CheckCircle className="h-4 w-4 text-teal-400 fill-teal-400/10" />
                         <span className="font-semibold tracking-wide">{PERSONAL_INFO.domain}</span>
                       </div>
-                      <span className="text-[10px] font-mono text-teal-300 font-bold">Live</span>
+                      <span className="text-[10px] font-mono text-teal-300 font-bold">Synced</span>
                     </div>
                   </div>
                 </div>
@@ -340,54 +601,61 @@ export default function App() {
         </section>
 
         {/* PORTFOLIO PROJECTS BLOCK */}
-        <section id="projects" className="bg-transparent py-16">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            
-            {/* Header control center */}
-            <ScrollReveal direction="up">
-              <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-                <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-950/30 px-3 py-1 text-xs font-semibold text-teal-400 border border-teal-900/40">
-                    <Code2 className="h-3.5 w-3.5" /> Project Repository
-                  </span>
-                  <h2 className="mt-3 text-3xl font-bold font-display text-white animate-fade-in">
-                    Showcase of Web Applications
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-400 max-w-xl">
-                    Explore custom scripts, utilities, and developer scaffolds registered under handle <strong>{PERSONAL_INFO.githubHandle}</strong>.
-                  </p>
-                </div>
+        {filteredProjects.length > 0 && (
+          <section id="projects" className="bg-transparent py-16">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              
+              {/* Header control center */}
+              <ScrollReveal direction="up">
+                <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-950/30 px-3 py-1 text-xs font-semibold text-teal-400 border border-teal-900/40">
+                      <Github className="h-3.5 w-3.5" /> GitHub Repositories
+                    </span>
+                    <h2 className="mt-3 text-3xl font-bold font-display text-white animate-fade-in">
+                      Public Repositories & Projects
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-400 max-w-xl">
+                      Live projects, developer utilities, and web apps synced directly from GitHub profile <strong>@{PERSONAL_INFO.githubHandle}</strong>.
+                    </p>
+                  </div>
 
-                {/* Filtering Controls */}
-                <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-zinc-800 bg-[#0b0c10] p-1 font-sans">
-                  {["All", "Web App", "Library"].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setFilterCategory(cat)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                        filterCategory === cat
-                          ? "bg-zinc-800 text-teal-400 shadow-xs border border-zinc-700/50"
-                          : "text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      {cat}
-                    </button>
+                  {/* Filtering Controls */}
+                  <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-zinc-800 bg-[#0b0c10] p-1 font-sans">
+                    {["All", "Web App", "Library"].map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setFilterCategory(cat)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                          filterCategory === cat
+                            ? "bg-zinc-800 text-teal-400 shadow-xs border border-zinc-700/50"
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </ScrollReveal>
+
+              {/* GitHub Contribution Activity Heatmap */}
+              <ScrollReveal direction="up" delay={0.05}>
+                <GitHubHeatmap username={PERSONAL_INFO.githubHandle} />
+              </ScrollReveal>
+
+              {/* Grid distribution */}
+              <ScrollReveal direction="up" delay={0.1}>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredProjects.map((project) => (
+                    <ProjectCard key={project.id} project={project} />
                   ))}
                 </div>
-              </div>
-            </ScrollReveal>
+              </ScrollReveal>
 
-            {/* Grid distribution */}
-            <ScrollReveal direction="up" delay={0.1}>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
-                ))}
-              </div>
-            </ScrollReveal>
-
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
 
         {/* SKILLS SYSTEM SECTION */}
         <section id="skills" className="bg-transparent py-16 border-t border-b border-zinc-900/50">
@@ -472,7 +740,13 @@ export default function App() {
           <div className="flex gap-4 text-xs text-slate-500">
             <a href="#hero" className="hover:text-teal-400 transition-colors">Top of Page</a>
             <span>&middot;</span>
-            <a href="#projects" className="hover:text-teal-400 transition-colors">Projects</a>
+            {DEFAULT_PROJECTS.length > 0 && (
+              <>
+                <a href="#projects" className="hover:text-teal-400 transition-colors">Projects</a>
+                <span>&middot;</span>
+              </>
+            )}
+            <a href="#skills" className="hover:text-teal-400 transition-colors">Skills</a>
             <span>&middot;</span>
             <a href="#contact" className="hover:text-teal-400 transition-colors">Contact</a>
           </div>
@@ -501,32 +775,28 @@ export default function App() {
           </div>
         )}
 
-        {/* Animated wave visualizer (only animates when actively playing) */}
+        {/* Dynamic frequency wave visualizer powered by Web Audio AnalyserNode */}
         <div className="flex items-end gap-0.5 h-[18px] w-6 px-1 justify-center">
-          {isPlaying && !isMuted ? (
-            <>
-              <span className="wave-bar"></span>
-              <span className="wave-bar"></span>
-              <span className="wave-bar"></span>
-              <span className="wave-bar"></span>
-            </>
-          ) : (
-            <>
-              <span className="h-1 w-[2.5px] bg-slate-600 rounded-xs"></span>
-              <span className="h-2 w-[2.5px] bg-slate-600 rounded-xs"></span>
-              <span className="h-1 w-[2.5px] bg-slate-600 rounded-xs"></span>
-              <span className="h-2 w-[2.5px] bg-slate-600 rounded-xs"></span>
-            </>
-          )}
+          {barHeights.map((h, i) => (
+            <span
+              key={i}
+              style={{ height: `${h}px` }}
+              className={`inline-block w-[2.5px] rounded-xs transition-all duration-75 ${
+                isPlaying && !isMuted ? "bg-teal-400 shadow-xs shadow-teal-400/50" : "bg-slate-600"
+              }`}
+            ></span>
+          ))}
         </div>
 
-        {/* Text Details */}
-        <div className="flex flex-col select-none pr-1">
+        {/* Station and Now Playing Metadata */}
+        <div className="flex flex-col select-none pr-1 max-w-[140px] sm:max-w-[190px] overflow-hidden">
           <span className="text-[9px] font-mono font-bold tracking-widest text-teal-400 uppercase flex items-center gap-1">
             <span className={`h-1.5 w-1.5 rounded-full ${isPlaying && !isMuted ? "bg-red-500 animate-pulse" : "bg-slate-600"}`}></span>
-            Live Music
+            Radio Foorti
           </span>
-          <span className="text-xs font-semibold text-white tracking-tight">Radio Foorti</span>
+          <span className="text-xs font-semibold text-white tracking-tight truncate" title={nowPlaying}>
+            {nowPlaying}
+          </span>
         </div>
 
         {/* Volume controls & slider */}
@@ -575,8 +845,6 @@ export default function App() {
 
       </div>
 
-      {/* Vercel Web Analytics */}
-      <Analytics />
     </div>
   );
 }
